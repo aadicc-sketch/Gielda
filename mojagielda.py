@@ -1,50 +1,58 @@
 import streamlit as st
 import yfinance as yf
+import plotly.graph_objects as go
 
-# Ustawienia strony - fajna ikona dolara w karcie przeglądarki
-st.set_page_config(page_title="Mój Giełdowy Radar", page_icon="💰")
+st.set_page_config(page_title="Giełda PRO", page_icon="📊", layout="wide")
 
-st.title("Monitor Akcji: IREN & OUST 📈")
+st.title("Monitor Świecowy: IRON & OUST 🕯️")
 
-# Tworzymy listę spółek do wyboru
-spolki = ["IREN", "OUST"]
-wybor = st.selectbox("Wybierz spółkę, którą chcesz sprawdzić:", spolki)
+# 1. Boczne menu (opcjonalnie, żeby było czyściej)
+with st.sidebar:
+    wybor = st.selectbox("Wybierz spółkę:", ["IRON", "OUST", "AAPL", "TSLA", "CDR.WA"])
+    
+    interwaly = {
+        "5 Minut": "5m",
+        "15 Minut": "15m",
+        "1 Godzina": "1h",
+        "Dzień": "1d"
+    }
+    wybrany_opis = st.radio("Interwał:", list(interwaly.keys()))
+    kod_interwalu = interwaly[wybrany_opis]
 
-# Pobieranie danych dla wybranej spółki
+# Ustawienie zakresu danych
+zakres = "5d" if kod_interwalu in ["5m", "15m"] else "1mo"
+
+# 2. Pobieranie danych
 data = yf.Ticker(wybor)
-
-# Pobieramy historię z ostatniego miesiąca
-historia = data.history(period="1mo")
+historia = data.history(period=zakres, interval=kod_interwalu)
 
 if not historia.empty:
-    # Pobieramy ostatnią dostępną cenę
-    aktualna_cena = historia['Close'].iloc[-1]
-    wczorajsza_cena = historia['Close'].iloc[-2]
-    roznica = aktualna_cena - wczorajsza_cena
+    # 3. Tworzenie wykresu świecowego
+    fig = go.Figure(data=[go.Candlestick(
+        x=historia.index,
+        open=historia['Open'],
+        high=historia['High'],
+        low=historia['Low'],
+        close=historia['Close'],
+        name='Kurs'
+    )])
 
-    # Wyświetlamy duże cyfry z ceną i zmianą (zielone/czerwone)
-    st.metric(label=f"Cena {wybor}", value=f"{round(aktualna_cena, 2)} USD", delta=f"{round(roznica, 2)} USD")
+    # Wygląd wykresu
+    fig.update_layout(
+        title=f"Wykres świecowy {wybor}",
+        yaxis_title="Cena (USD)",
+        xaxis_rangeslider_visible=False, # Usuwamy suwak na dole dla czytelności
+        template="plotly_dark" # Ciemny motyw wygląda bardzo pro!
+    )
 
-    # Rysujemy wykres
-    st.subheader(f"Wykres kursu {wybor} (ostatni miesiąc)")
-    st.line_chart(historia['Close'])
+    # Wyświetlenie wykresu w Streamlit
+    st.plotly_chart(fig, use_container_width=True)
     
-   # Dodajemy sekcję z newsami (BEZPIECZNIEJSZA WERSJA)
-    st.subheader(f"Najnowsze wieści o {wybor}")
-    newsy = data.news[:3] # Pobierz 3 najnowsze wiadomości
-    
-    if not newsy:
-        st.write("Brak aktualnych newsów dla tej spółki.")
-    else:
-        for n in newsy:
-            # Używamy .get(), który nie wywala błędu, jeśli czegoś brakuje
-            tytul = n.get('title', 'Brak tytułu')
-            link = n.get('link', '#')
-            zrodlo = n.get('publisher', 'Nieznane źródło')
-            
-            st.write(f"**[{tytul}]({link})**")
-            st.write(f"Źródło: {zrodlo}")
-            st.divider()
-        st.divider()
+    # 4. Statystyki pod wykresem
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Max", f"{round(historia['High'].max(), 2)}$")
+    col2.metric("Min", f"{round(historia['Low'].min(), 2)}$")
+    col3.metric("Zamknięcie", f"{round(historia['Close'].iloc[-1], 2)}$")
+
 else:
-    st.error("Nie udało się pobrać danych. Sprawdź połączenie z internetem.")
+    st.error("Brak danych dla tego interwału.")
