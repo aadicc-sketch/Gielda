@@ -29,12 +29,22 @@ if not historia.empty:
     st.subheader(f"Wykres kursu {wybor} (ostatni miesiąc)")
     st.line_chart(historia['Close'])
     
-    # Dodajemy sekcję z newsami
+   # Dodajemy sekcję z newsami (BEZPIECZNIEJSZA WERSJA)
     st.subheader(f"Najnowsze wieści o {wybor}")
     newsy = data.news[:3] # Pobierz 3 najnowsze wiadomości
-    for n in newsy:
-        st.write(f"**[{n['title']}]({n['link']})**")
-        st.write(f"Źródło: {n['publisher']}")
+    
+    if not newsy:
+        st.write("Brak aktualnych newsów dla tej spółki.")
+    else:
+        for n in newsy:
+            # Używamy .get(), który nie wywala błędu, jeśli czegoś brakuje
+            tytul = n.get('title', 'Brak tytułu')
+            link = n.get('link', '#')
+            zrodlo = n.get('publisher', 'Nieznane źródło')
+            
+            st.write(f"**[{tytul}]({link})**")
+            st.write(f"Źródło: {zrodlo}")
+            st.divider()
         st.divider()
 else:
     st.error("Nie udało się pobrać danych. Sprawdź połączenie z internetem.")
